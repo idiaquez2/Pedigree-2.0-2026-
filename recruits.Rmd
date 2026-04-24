@@ -1,0 +1,320 @@
+---
+title: "Recruits"
+author: "david lopez idiaquez"
+date: "2026-04-21"
+output: html_document
+---
+#0.packages
+```{r}
+library(dplyr)
+```
+
+#1.checking long term ringing data I provided
+##1.1 Great tit nestlings ringed from 1960 onwards
+```{r}
+long_term_ringing_data_latest_2026_02_19 <- read_csv("long_term_ringing_data_latest_2026.02.19.csv")
+
+great_tits_from_1960<-long_term_ringing_data_latest_2026_02_19 %>% 
+  filter(year>=1960) %>% 
+  filter(species=="greti") %>% 
+  filter(age=="1") %>% 
+  mutate(ring=toupper(ring),
+         ring=trimws(ring)) %>% 
+  distinct(ring, .keep_all = TRUE) #there are some that are repeated
+
+great_tits_from_1960_pyear<-great_tits_from_1960 %>% 
+  group_by(year) %>% 
+  summarise(tot_nest_ring=length(ring)) %>% 
+  ungroup()
+  
+table(great_tits_from_1960_pyear$year)
+
+#the number of nestlings in the 90's seems ok
+```
+
+##1.2 Is the pnum the problem?
+```{r}
+#select the ring and pnum (location) from the list of nestlings ringed (great_tits_from_1960)
+nestlings_ringed<-great_tits_from_1960 %>% 
+  select(location, ring, year) %>% 
+  mutate(location=toupper(location),
+         location=trimws(location)) %>% 
+  mutate(ring=toupper(ring),
+         ring=trimws(ring))
+  
+#Id the problem with the obs from 1990s.
+nestlings_ringed_1994<-nestlings_ringed %>% 
+  filter(year=="1994")
+
+nestlings_ringed_1995<-nestlings_ringed %>% 
+  filter(year=="1995")
+
+nestlings_ringed_2020<-nestlings_ringed %>% 
+  filter(year=="2020")
+
+#The problem is that in the 1990's there are many with either non standard format of the pnum (yearbreedingattemptnest) or with no pnum. Pnum is the code that we use to link the broods in the breeding dataset to the nestlings in the long-term ringing data, thus without the pnum we cannot link the number of nestlings that recruited to the brood they came from.
+```
+
+##1.3 Trying to solve this
+###1.3.1 Explore alternative dataset
+I have another file wythamGTBT_ringingdata_1960_2024.csv that has information on the nest where birds were ringed
+```{r}
+wythamGTBT_ringingdata_1960_2024 <- read_csv("wythamGTBT_ringingdata_1960_2024.csv")
+
+alt_great_tit_nest<-wythamGTBT_ringingdata_1960_2024 %>% 
+  filter(age=="1") %>% 
+  filter(bto_species_code=="GRETI")
+
+#test 1994 which was problematic
+alt_great_tit_nest_1994<-alt_great_tit_nest %>% 
+  filter(yr==1994) #interestingly these have location info
+
+#the alternative dataset has 2271 in 1994 and the one I gave Simon has 2938
+```
+
+The alternative dataset has information on pnums, but has less data (nestlings ringed) that the one I gave Simon
+
+###1.3.2 Compare 1994, 1995  & 2020 data from the two datasets
+```{r}
+#1994
+nestlings_ringed_1994_tojoin<-nestlings_ringed_1994 %>% 
+  select(location, ring) %>% 
+  rename(location_or=location)
+  
+alt_great_tit_nest_1994_tojoin<-alt_great_tit_nest_1994 %>% 
+  select(Pnum, nb, bto_ring)
+
+
+comparison_1994<-left_join(nestlings_ringed_1994_tojoin, alt_great_tit_nest_1994_tojoin, by=c("ring"="bto_ring"))
+
+#are there any in the data i gave to simon with a good pnum number that do not have a pnum in the alternative one
+comparison_1994_test1<-comparison_1994 %>% 
+  filter(!is.na(location_or)) %>% 
+  filter(is.na(Pnum))
+
+#those that have a pnum in the new data set and dont in the alternative one do not correspond to Wytham boxes (the id of the nest is TC, which corresponds to Bagley and BY, which does not appear in my known nestbox list nest box list)
+
+#1995
+nestlings_ringed_1995_tojoin<-nestlings_ringed_1995 %>% 
+  select(location, ring) %>% 
+  rename(location_or=location)
+  
+alt_great_tit_nest_1995_tojoin<-alt_great_tit_nest %>% 
+  filter(yr==1995) %>%  #interestingly these have location info
+  select(Pnum, nb, bto_ring)
+
+comparison_1995<-left_join(nestlings_ringed_1995_tojoin, alt_great_tit_nest_1995_tojoin, by=c("ring"="bto_ring"))
+
+#are there any in the data i gave to simon with a good pnum number that do not have a pnum in the alternative one
+comparison_1995_test1<-comparison_1995 %>% 
+  filter(!is.na(location_or)) %>% 
+  filter(is.na(Pnum))
+
+#only 2 with CH as nest id
+
+#2020
+nestlings_ringed_2020_tojoin<-nestlings_ringed_2020 %>% 
+  select(location, ring) %>% 
+  rename(location_or=location)
+  
+alt_great_tit_nest_2020_tojoin<-alt_great_tit_nest %>% 
+  filter(yr==2020) %>%  #interestingly these have location info
+  select(Pnum, nb, bto_ring)
+
+comparison_2020<-left_join(nestlings_ringed_2020_tojoin, alt_great_tit_nest_2020_tojoin, by=c("ring"="bto_ring"))
+
+#are there any in the data i gave to simon with a good pnum number that do not have a pnum in the alternative one
+comparison_2020_test1<-comparison_2020 %>% 
+  filter(!is.na(location_or)) %>% 
+  filter(is.na(Pnum))
+
+#there are none because in both we have the same data
+```
+
+So the problem seems to be that by whatever reason there are many ringed nestlings in long_term_ringing_data(latest 2026.02.19), that do not have pnum (Location) information and these seem to be particularly evident in the 1990's. 
+
+To solve this issue what I am going to do is:
+  1. Combine both datasets
+  2. Keep a single pnum/location_ring. In this way I will avoid having the same nestling with the proper information twice
+  3. Then from those nestlings that appear twice (but have different pnum/location_ring) i am going to retain those that have the good pnum.
+  
+#1.4 Solve the problem 
+##1.4.1 Join datasets
+```{r}
+#1 Prepare dataset to be joined
+
+#dataset i sent to Simon (most updated one with the issue)
+great_tits_from_1960_tojoin<-great_tits_from_1960 %>% 
+  select(location, ring, year) %>% 
+  distinct(ring, .keep_all=TRUE) %>% #ensure no repeated rings
+  rename(Pnum=location) %>% 
+  mutate(nest="NA") #I need to crete this to be able to join the datasets
+
+#alternative dataset with less years but pnum info
+alt_great_tit_nest_tojoin<-alt_great_tit_nest %>% 
+  select(Pnum, bto_ring, yr, nb) %>% 
+  rename(ring=bto_ring,
+         year=yr,
+         nest=nb) %>% 
+  mutate(ring=toupper(ring),
+         ring=trimws(ring)) %>% 
+  distinct(ring, .keep_all = TRUE)
+  
+join_gt_nestlings<-rbind(great_tits_from_1960_tojoin, alt_great_tit_nest_tojoin)
+```
+
+###1.4.2 Clean the new dataset by removing duplicates and retaining the good obs with 
+
+```{r}
+#1. Remove those that are repeated with the same Pnum
+join_gt_nestlings_2 <- join_gt_nestlings %>% 
+  mutate(Pnum_ring = paste(Pnum, ring, sep = "_")) %>% 
+  distinct(Pnum_ring, .keep_all = TRUE) %>%
+  group_by(ring) %>%  # Repeated obs: remove rows where Pnum is NA
+  filter(!(n() > 1 & is.na(Pnum))) %>%
+  ungroup() %>%
+  group_by(ring) %>%
+  filter(!(n() > 1 & is.na(nest))) %>% #Repeated obs remove rows where nest is NA
+  ungroup()
+
+#Here I have removed those repeated rings that have the same pnum and those repeated rings that have NA in Pnum and nest it they were still repeated (i think no one was removed in the second step). This will effectively remove those nestlings ringed in wytham with no pnum if in both datasets they did not had a pnum.
+
+#After this filter there are still a good bunch with teh same ring but different Pnums. In many cases is becasue the information of the pnum is more a location in the woods that does not follow the stardard pnum format. Given that the good pnums need to have the year first i am going to use this 
+
+join_gt_nestlings_3<-join_gt_nestlings_2 %>% 
+  mutate(year_test=substr(Pnum, 1, 4)) %>%
+  filter(grepl("^[0-9]{4}$", year_test)) #here I retain those with a year shaped format
+
+table(join_gt_nestlings_3$year_test) #here I tested that the years make sense
+
+join_gt_nestlings_4<-join_gt_nestlings_3 %>% 
+  group_by(ring) %>% 
+  mutate(count=length(ring)) %>% 
+  ungroup() %>% 
+  filter(Pnum_ring!="20161SW44_TS45000")
+
+#Now there is only one ring that appears twice TS45000. I checked and is a nestling that did not recruit and given that TS45001 is a nestling of the same brood (so is TS44999) are from 2011 SW70, I am going to remove the other obs
+
+#Test no repeated rings
+join_gt_nestlings_test_rep<-join_gt_nestlings_4 %>% 
+  group_by(ring) %>% 
+  mutate(n_obs=length(ring)) %>% 
+  ungroup %>% 
+  filter(n_obs>1) #no obs so no repeated
+
+#This is good up to 2024 - those from 2025 have also a weird format so I removed them, i need to paste them again
+
+great_tits_from_2025<-long_term_ringing_data_latest_2026_02_19 %>% 
+  filter(year>=2025) %>% 
+  filter(species=="greti") %>% 
+  filter(age=="1") %>% 
+  mutate(ring=toupper(ring),
+         ring=trimws(ring)) %>% 
+  distinct(ring, .keep_all = TRUE) #there are some that are repeated
+
+str(great_tits_from_2025)
+
+
+great_tits_from_2025_2 <- great_tits_from_2025 %>%
+  mutate(nest = sub("-.*", "", location)) %>% 
+  mutate(nest = sub("-.*", "", location),
+         nest = case_when(
+           grepl("B227 WYT", location) ~ "B227",
+           TRUE ~ nest
+         )) %>% 
+  mutate(nest=trimws(nest)) %>% 
+  mutate(Pnum=paste(year, "1", nest, sep="")) %>%  #I use 1 becasue there are no second clutches (all nestlings ringed in at the same time date)
+  select(Pnum, ring, year, nest) %>% 
+  mutate(Pnum_ring=paste(Pnum, ring, sep="_"))
+
+#test for second clutches in 2025 (same nest different dates)
+different_time<-great_tits_from_2025_2 %>%
+  group_by(nest) %>%
+  summarise(n_distinct_dates = n_distinct(date_time),
+            dates = paste(unique(date_time), collapse = ", ")) %>%
+  filter(n_distinct_dates > 1)
+
+##join the 2025 data
+join_gt_nestlings_4<-join_gt_nestlings_4 %>% 
+  select(-count, -year_test)
+
+join_gt_nestlings_5<-rbind(great_tits_from_2025_2, join_gt_nestlings_4)
+
+#check for repeated rings
+join_gt_nestlings_5<-join_gt_nestlings_5 %>% 
+  distinct(ring, .keep_all=TRUE)
+
+write.csv(join_gt_nestlings_5, "great_tit_nest_21_04_2026.csv")
+```
+
+#2. Compute recruits with the two datasets
+## 2.1 Collate adults
+```{r}
+Wytham_GT_BT_1960_2025 <- read_csv("Wytham GT BT 1960_2025.csv")
+
+great_tit_mothers<-Wytham_GT_BT_1960_2025 %>% 
+  filter(Species=="g") %>% 
+  select(Mother) %>% 
+  na.omit() %>% 
+  mutate(Mother=toupper(Mother),
+         Mother=trimws(Mother)) %>%  
+  rename(ring=Mother) %>% 
+  distinct(ring) #8838 different adult females captured as breeders
+  
+great_tit_fathers<-Wytham_GT_BT_1960_2025 %>% 
+  filter(Species=="g") %>% 
+  select(Father) %>% 
+  na.omit() %>% 
+  mutate(Father=toupper(Father),
+         Father=trimws(Father)) %>% 
+  rename(ring=Father) %>% 
+  distinct(ring) #7522 different adult males captured as breeders
+
+breeding_adults<-rbind(great_tit_mothers, great_tit_fathers)
+
+#It is really likely that in the 66 years some adults have been id as females and males, remove repeated ids then
+breeding_adults2<-breeding_adults %>% 
+  distinct(ring) %>%  #there are 7 classified both as males and females.
+  mutate(breeder="1") #with this I classify the captured adults as breeders
+```
+
+###2.1.1 recruits with new nestling data
+```{r}
+great_tit_nest_21_04_2026 <- read_csv("great_tit_nest_21_04_2026.csv")
+great_tit_nest_21_04_2026$...1<-NULL
+
+great_tit_rec<-left_join(great_tit_nest_21_04_2026, breeding_adults2, by="ring")
+
+great_tit_rec <- great_tit_rec %>%
+  mutate(breeder = replace_na(breeder, "0"))
+
+recruits_brood<-great_tit_rec  %>% 
+  group_by(Pnum) %>% 
+  summarise(n_rec=sum(as.numeric(breeder))) %>% 
+  ungroup()
+
+recruits_per_year_new<-recruits_brood %>% 
+  mutate(year=substr(Pnum, 1, 4)) %>% 
+  group_by(year) %>% 
+  summarise(tot_rec=sum(n_rec)) %>% 
+  ungroup()
+
+
+print(recruits_per_year_new, n = nrow(recruits_per_year_new))
+
+#link the recruits to the breeding data
+great_tit_breeding<-Wytham_GT_BT_1960_2025 %>% 
+  filter(Species=="g") %>% 
+  select(Pnum, `April lay date`, `Clutch size`, `Num fledglings`) %>% 
+  left_join(recruits_brood, by="Pnum")
+
+great_tit_breedingPYEAR<-great_tit_breeding %>% 
+  mutate(year=substr(Pnum, 1,4)) %>% 
+  group_by(year) %>% 
+  summarise(rec_year=sum(n_rec, na.rm=TRUE))
+
+```
+
+
+
+

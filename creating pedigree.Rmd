@@ -1,6 +1,6 @@
 ---
 title: "Creating pedigree"
-author: "david lopez idiaquez"
+author: "david lopez idiaquez & devi satarkar"
 date: "2026-04-23"
 output: html_document
 ---
@@ -8,7 +8,64 @@ output: html_document
 ```{r}
 library(dplyr)
 library(readxl)
+library(readr)
 ```
 
+#1. Loading datasets to create a list of the nestlings ringed in Wytham and their associated pnums (brood id -  to connect with adult data)
 
+Note: we are only interested in those nestlings ringed in Wytham core area - Sections: mp, b, p, sw, c, o, ex, w, cp
+
+Data on nestlings ringed in Wytham is a bit messy, so we are trying to maximise what we have from different datasets. Important to have the PNUMs to connect the nestling data to the dams and sires. 
+
+##1.1 great_tit_nest_21_04_2026.csv
+
+This dataset contains the nestlings ringed between 1960 and 2025 that David collated for the Life-History Evolution project with S.R. Evans. It was done by using two datasets long_term_ringing_data_latest_2026.02.19.csv and wythamGTBT_ringingdata_1960_2024.csv using the code recruits (all present in the repository),
+
+This dataset should be a reliable source of information on the nestlings ringed between 1960 and 2025 and their associated Pnums
+```{r}
+great_tit_nest_21_04_2026 <- read_csv("great_tit_nest_21_04_2026.csv")
+great_tit_nest_21_04_2026_tjoin<-great_tit_nest_21_04_2026 %>% 
+  select(ring, Pnum, year)
+```
+
+##1.2 long_term_ringing_data_latest_2026.02.19.csv
+
+From this one we can get information of the nestlings ringed pre 1960.
+```{r}
+long_term_ringing_data_latest_2026_02_19 <- read_csv("long_term_ringing_data_latest_2026.02.19.csv")
+
+#filter the data
+nest_pre1960<-long_term_ringing_data_latest_2026_02_19 %>% 
+  filter(year<1960) %>%  #retain years pre 1960 
+  filter(species=="greti") %>%  #retain great tits
+  filter(age==1) #retain nestlings
+
+#retain only those from relevant locations
+nest_pre1960_2<-nest_pre1960 %>% 
+  mutate(nest=substr(location, 6, 12)) %>%  #rationale: location=pnum and the first 5 characters are year + breeding attempt
+  mutate(nest=trimws(nest),
+         nest=toupper(nest))
+
+table(nest_pre1960_2$nest) #there are some nestboxes named X something, which seem not to be within those in the core area
+sum(is.na(nest_pre1960_2$nest)) #no nas in nest
+sum(is.na(nest_pre1960_2$location)) #no nas in location
+
+
+##load info on known box location to filter those from 
+known_nestboxes_x_y <- read_csv("known_nestboxes_x_y.csv")
+
+known_nestboxes_x_y_2<-known_nestboxes_x_y %>% 
+  select(Nestbox, Section) %>% 
+  mutate(Nestbox=trimws(Nestbox),
+         Nestbox=toupper(Nestbox))
+
+nest_pre1960_3<-nest_pre1960_2 %>% 
+  left_join(known_nestboxes_x_y_2, by=c("nest"="Nestbox")) %>%
+  mutate(Section = ifelse(is.na(Section), substr(nest, 1, 1), Section)) %>% 
+  mutate(Section=trimws(Section),
+         Section=tolower(Section)) %>% 
+  filter(Section %in% c("mp", "b", "p", "sw", "c", "o", "ex", "w", "cp"))
+
+
+```
 
