@@ -66,6 +66,127 @@ nest_pre1960_3<-nest_pre1960_2 %>%
          Section=tolower(Section)) %>% 
   filter(Section %in% c("mp", "b", "p", "sw", "c", "o", "ex", "w", "cp"))
 
-
+nest_pre1960_4<-nest_pre1960_3 %>% 
+  select(ring, location, year) %>% 
+  rename(Pnum=location)
 ```
+
+##1.3 join 1.1 & 1.2
+```{r}
+nestlings_from1947<-rbind(nest_pre1960_4, great_tit_nest_21_04_2026_tjoin)
+```
+
+#2. I now add the parents
+##2.1 Adding dams and sires from Wytham GT BT 1960_2025.csv
+This only contains information from 1960 onwards
+```{r}
+Wytham_GT_BT_1960_2025 <- read_csv("Wytham GT BT 1960_2025.csv")
+adults_1960_dams<-Wytham_GT_BT_1960_2025 %>% 
+  filter(Species=="g") %>% 
+  filter(Section %in% c("mp", "b", "p", "sw", "c", "o", "ex", "w", "cp")) %>% 
+  select(Pnum, Mother) %>% 
+  mutate(Pnum=toupper(Pnum),
+         Pnum=trimws(Pnum),
+         Dam=toupper(Mother),
+         Dam=trimws(Dam)) %>% 
+  na.omit() %>% 
+  select(-Mother)
+
+adults_1960_sires<-Wytham_GT_BT_1960_2025 %>% 
+  filter(Species=="g") %>% 
+  filter(Section %in% c("mp", "b", "p", "sw", "c", "o", "ex", "w", "cp")) %>% 
+  select(Pnum, Father) %>% 
+  mutate(Pnum=toupper(Pnum),
+         Pnum=trimws(Pnum),
+         Sire=toupper(Father),
+         Sire=trimws(Sire)) %>% 
+  na.omit() %>% 
+  select(-Father)
+```
+
+##2.2 Join mother and fathers from the breeding dataset
+```{r}
+nestlings_from1947_2<-left_join(nestlings_from1947, adults_1960_dams, by="Pnum")
+nestlings_from1947_3<-left_join(nestlings_from1947_2, adults_1960_sires, by="Pnum")
+```
+
+##2.3 More parents can be Id'd from the long-term ringing data
+
+I am going to filter those with age>1 and the adult captures
+```{r}
+adults_lt<-long_term_ringing_data_latest_2026_02_19 %>% 
+  filter(species=="greti") %>% 
+  filter(age>1) %>% 
+  select(ring, location, sex, year)
+
+#here I select the males
+adults_lt_males<-adults_lt %>% 
+  filter(sex=="M") %>% 
+  rename(sire_lt=ring) %>% 
+  rename(Pnum=location) %>% 
+  select(Pnum, sire_lt, year)
+  
+#I am getting several many-to-many conections between this dataset and the nestling one. This means that there are repeated Pnums in adults_lt_males (there are in the nestling data but that is to be expected).
+
+#To deal with this, I am going to select the Pnums in the nestling data and join them to the adult dataset. This allows me to id the relevant rows, with relevant information for the nestlings, in the adult dataset and check the repeated Pnums in this dataset
+
+nestling_pnums<-nestlings_from1947_3 %>% 
+  distinct(Pnum) %>% 
+  mutate(as_nest="yes")
+
+adults_lt_males_2<-left_join(adults_lt_males,cosita, by="Pnum")
+
+adults_lt_males_2_relevant_Pnums<-adults_lt_males_2 %>% 
+  filter(as_nest=="yes")
+
+#as there are some repeated pnums I need to check whether the ring, and thus the sire, associated to them is the same. If it is I can retain just one obs per pnum and join this to the nestling data.
+adults_lt_males_2_relevant_Pnums2<-adults_lt_males_2_relevant_Pnums %>%
+  group_by(Pnum) %>%
+  summarise(n_distinct_sire = n_distinct(sire_lt)) %>%
+  filter(n_distinct_sire > 1)
+
+# # There are 8 with two different rings in Pnum
+#   Pnum      n_distinct_sire
+#   <chr>               <int>
+# 1 19731B12                2 
+##-two different rings: BP11278 & BP11272 -> checking the long term dataset BP11278 was captured also in SW12 the day after. I am going to assume that BP11272 is the good male
+
+# 2 19901XN9                2 - This needs some thought
+# 3 19921O57                2 - F952677 is the good one according to the breeding dataset
+# 4 20151O52                2 - here I have the father and mother according to the breeding data
+# 5 20161C154               2 - 
+##here this Z032801 was once classified as a female so i think that I am going to assume that TP42633 is the male. I think this makes sense as the female was not id´d in that nest
+
+# 6 20191SW8                2 - TR43261 is the female according to ebmp and TS44673 the male
+# 7 20201O53                2 - here I have the mother and the father from the breeding data
+# 8 20231EX76               2
+
+
+
+
+
+
+
+  
+nestlings_from1947_test<-left_join(nestlings_from1947_3, adults_lt_males, by="Pnum")
+
+
+cosita<-nestlings_from1947_3 %>% 
+  distinct(Pnum) %>% 
+  mutate(as_nest="yes")
+
+cosa<-left_join(adults_lt_males,cosita, by="Pnum")
+str(test_count_pnums)
+```
+
+
+
+
+
+
+
+
+
+
+
 
