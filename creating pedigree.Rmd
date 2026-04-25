@@ -437,7 +437,40 @@ nestlings_from1947_11<-rbind(nestlings_from1947_10, breeding_adults_not_inped)
 
 ###3.2.2 Body mass dataset
 ```{r}
+adult_mass_breeding25_alt <- read_csv("adult_mass_breeding25_alt.csv")
 
+mass_adults_ids<-adult_mass_breeding25_alt %>% 
+  select(ring) %>% 
+  distinct(ring)
+
+id_ped_2<-nestlings_from1947_11 %>% 
+  select(id) %>% 
+  mutate(present_ped="yes")
+
+
+mass_adults_ids_2<-left_join(mass_adults_ids, id_ped_2, by=c("ring"="id"))
+mass_adults_ids_2_not_inped<-mass_adults_ids_2 %>% 
+  filter(is.na(present_ped)) %>% 
+  rename(id=ring) %>% 
+  select(-present_ped) %>% 
+  mutate(dam=NA_character_,
+         sire=NA_character_)
+  
+nestlings_from1947_12<-rbind(nestlings_from1947_11, mass_adults_ids_2_not_inped)
+
+nestlings_from1947_13<-nestlings_from1947_12 %>% 
+  mutate(id=toupper(id),
+         id=trimws(id),
+         dam=toupper(dam),
+         dam=trimws(dam),
+         sire=toupper(sire),
+         sire=trimws(sire)) %>% 
+  distinct(id, .keep_all = TRUE)
+
+#final
+nestlings_from1947_14<-fix_ped(nestlings_from1947_13) #there is one row with all NAs
+
+write.csv(nestlings_from1947_14, "ped_updated_1960_2025.csv")
 ```
 
 
