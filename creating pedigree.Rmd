@@ -134,7 +134,7 @@ nestling_pnums<-nestlings_from1947_3 %>%
   distinct(Pnum) %>% 
   mutate(as_nest="yes")
 
-adults_lt_males_2<-left_join(adults_lt_males,cosita, by="Pnum")
+adults_lt_males_2<-left_join(adults_lt_males,nestling_pnums, by="Pnum")
 
 adults_lt_males_2_relevant_Pnums<-adults_lt_males_2 %>% 
   filter(as_nest=="yes")
@@ -231,9 +231,144 @@ nestlings_from1947_5 <- nestlings_from1947_4 %>%
 ```
 
 ###2.3.3 Dams
+```{r}
+#here I select the females
+adults_lt_females<-adults_lt %>% 
+  filter(sex=="F") %>% 
+  rename(dam_lt=ring) %>% 
+  rename(Pnum=location) %>% 
+  select(Pnum, dam_lt, year)
 
+adults_lt_females_2<-left_join(adults_lt_females,nestling_pnums, by="Pnum")
 
+adults_lt_females_2_relevant_Pnums<-adults_lt_females_2 %>% 
+  filter(as_nest=="yes")
 
+#as there are some repeated pnums I need to check whether the ring, and thus the sire, associated to them is the same. If it is I can retain just one obs per pnum and join this to the nestling data.
+adults_lt_females_2_relevant_Pnums2<-adults_lt_females_2_relevant_Pnums %>%
+  group_by(Pnum) %>%
+  summarise(n_distinct_dam = n_distinct(dam_lt)) %>%
+  filter(n_distinct_dam > 1)
+```
+
+Pnums with repeated values
+
+1. 19931B63
+
+Two rings as dams: F938343 and F833132 -> I cannot identify which may be the one
+
+2. 20131B36
+
+Two rings as dams: Y839845 and X235021 -> On ebmp Y839845 appears as true female and X235021 as suspected. X235021 was faceplated. Thus I am going to retain Y839845 as the true dam.
+
+3. 20171EX91 : These were properly identified using the breeding data
+
+4. 20171O2: 
+
+Two rings as dams: TS45475 and TR42314. This TR42314 appears as diurnal scan, thus I am going to assume that TS45475 is the true dam.
+
+5. 20191C4:
+
+Two rings as dams: TR43098 and VZ31205. TR43098 Identified as a male by keith. VZ31205 is the female according to ebmp, thus i retain VZ31205. as dam.
+
+6. 20201B207
+
+Two rings as dams: TY70133 and TV44280, this last one appears twice. -> I cannot identify which is the true one
+
+7. 20211CP35
+
+Two rings as dams: TY69574 and PF72110. PF72110 id'd using the broodpatch TY69574 is a male in ebmp, so I am going to retain PF72110 as female
+
+8. 20221SW16
+
+Two rings as dams: VZ32782 and VZ33278. In ebmp VZ32782 is the dam of that brood
+
+9. 20231B76      
+
+Two rings as dams: TY70819 and TY69492. In ebmp TY69492 appears as the dam of that brood
+
+10. 20231EX11: both Id'd thanks to the breeding data
+
+11. 20231SW15
+
+Two rings as dams: PF71392 and VZ32782. VZ32782 is the dam, and PF71392 the sire according to ebmp.
+
+###2.3.4 Join dams
+```{r}
+adults_lt_females_2_relevant_Pnums_2<-adults_lt_females_2_relevant_Pnums %>% 
+  filter(!(Pnum == "19931B63")) %>%  #dealing with 1 remove both 
+  filter(!(Pnum == "20131B36" & dam_lt == "X235021")) %>%  #dealing with 2 retaining Y839845
+  filter(!(Pnum == "20171EX91")) %>% #dealing with 3; properly idd in with the breeding data
+  filter(!(Pnum == "20171O2" & dam_lt == "TR42314")) %>% #dealing with 4 retaining TS45475
+  filter(!(Pnum == "20191C4" & dam_lt == "TR43098")) %>% #dealing with 5, retain VZ31205
+  filter(!(Pnum == "20201B207")) %>% #dealing with 6, i retain TP42633
+  filter(!(Pnum == "20211CP35" & dam_lt == "TY69574")) %>% #dealing with 7, i retain PF72110
+  filter(!(Pnum == "20221SW16" & dam_lt == "VZ33278")) %>% #Dealing with 8, i retain VZ32782
+  filter(!(Pnum == "20231B76" & dam_lt == "TY70819")) %>%  #Dealing with 9, i retain TY69492
+  filter(!(Pnum == "20231EX11")) %>% #Dealing 10 both id thanks to the breeding data
+  filter(!(Pnum == "20231SW15" & dam_lt == "PF71392")) %>% #Dealing with 11, i retain VZ32782
+  select(Pnum, dam_lt, year) %>% 
+  distinct(Pnum, .keep_all = TRUE)
+
+nestlings_from1947_6<-left_join(nestlings_from1947_5, adults_lt_females_2_relevant_Pnums_2, by="Pnum")
+
+#how many new ids does including the long-term data add
+nestlings_from1947_6 %>%
+  distinct(Pnum, .keep_all = TRUE) %>% 
+  filter(is.na(Dam) & !is.na(dam_lt)) %>%
+  nrow()
+#this adds 484 new sires
+
+#Sanity check - test that in those that I have both information of sire (from the breeding dataset) and of sire_lt (from the long term data)
+
+nestlings_from1947_6_test <- nestlings_from1947_6 %>%
+  mutate(Dam=trimws(Dam),
+         Dam=toupper(Dam),
+         dam_lt=trimws(dam_lt),
+         dam_lt=toupper(dam_lt)) %>% 
+  mutate(dam_match = case_when(
+    is.na(Dam) | is.na(dam_lt) ~ NA_character_,
+    Dam == dam_lt ~ "yes",
+    TRUE ~ "no"
+  ))
+```
+
+There are three problematic ones
+
+-20051W3: It seems that there is a typo between the one I pasted from the breeding data and that of the long term data, but both appear only once so i think is ok to retain the one we have.
+
+-20061EX38: Here there is a typo one starts with M and the other with N. They only appear once so it should be alright.
+
+-20101W42: Typo between 0 and O the one that is as Dam is the good one as it appears like that at other captures
+
+-20191O49: Here it also seems that there is a typo ending on 8 or 9. the one with 8 seems to be the good one
+
+-20181O48: Here it also seems that there is a typo ending on 8 or 9. the one with 8 seems to be the good one (same typo as before!)
+
+-20231W11: TW vs TY, TY is the one appearing on ebmp, i need to change it
+
+Fix these issues and combine dam columns
+```{r}
+nestlings_from1947_7 <- nestlings_from1947_6 %>%
+  mutate(Dam = case_when(
+    Pnum %in% c("20191O49", "20181O48", "20231W11") ~ NA_character_,
+    TRUE ~ Dam
+  ))%>%
+  mutate(Dam = coalesce(Dam, dam_lt)) %>% 
+  select(ring, Pnum, year.x, Dam, Sire) %>% 
+  rename(year=year.x)
+```
+
+###2.3.5 There are a couple extra Dam/Sires that I can add from these last two checks.
+
+19921O57 - the dam can be VH83814 (see line 158)
+
+20191C4 -  the sire can be TR43098 (272)
+```{r}
+nestlings_from1947_8 <- nestlings_from1947_7 %>%
+  mutate(Dam = ifelse(Pnum == "19921O57", "VH83814", Dam)) %>% 
+  mutate(Sire = ifelse(Pnum == "20191C4", "TR43098", Sire))
+```
 
 
 
