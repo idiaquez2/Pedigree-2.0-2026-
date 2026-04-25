@@ -371,6 +371,62 @@ nestlings_from1947_8 <- nestlings_from1947_7 %>%
   mutate(Sire = ifelse(Pnum == "20191C4", "TR43098", Sire))
 ```
 
+####2.3.5.1 Check for the presence of Dams as sires and viceversa
+Dams as sires
+```{r}
+#dams as sires
+dam_as_sire <- intersect(
+  unique(na.omit(nestlings_from1947_8$Dam)),
+  unique(na.omit(nestlings_from1947_8$Sire))
+)
+
+ped_dams_as_sires<-nestlings_from1947_8 %>% 
+  filter(Dam %in% dam_as_sire) %>% 
+  distinct(Dam)
+```
+1 TY69574 -> this one needs to be removed from the sire column
+2 TK26998 -> this appears as male in the long term ringing data - remove it from the dam column
+3 E985078 -> this appears as male in the long term ringing data - remove it from the dam column
+4 Y031429 -> this appears as a female in the long term ringing data - remove it from the sire column
+5 VZ30433 -> not sure, remove it from the sire column (appeas as father and mother)
+6 TX42961 -> not sure, remove it from the sire column (appeas as father and mother)
+7 TV44507 -> keith sexed it as a female, remove it from the sire column
+8 VZ30547 -> keith sexed it as a male, remove it from the dam column
+9 PY93410 -> is a sire, remove it from dam. In 20241MP28 the sire is PY93410 and the dam is VZ33466 according to ebmp
+
+```{r}
+str(nestlings_from1947_8)
+
+nestlings_from1947_8.5 <- nestlings_from1947_8 %>%
+  mutate(Sire = na_if(Sire, "TY69574")) %>% 
+  mutate(Dam = na_if(Dam, "TK26998")) %>% 
+  mutate(Dam = na_if(Dam, "E985078")) %>% 
+  mutate(Sire = na_if(Sire, "Y031429")) %>% 
+  mutate(Sire = na_if(Sire, "VZ30433")) %>% 
+  mutate(Sire = na_if(Sire, "TX42961")) %>% 
+  mutate(Sire = na_if(Sire, "TV44507")) %>% 
+  mutate(Dam = na_if(Dam, "VZ30547")) %>%
+  mutate(Dam = na_if(Dam, "PY93410")) %>%
+  mutate(
+    Sire = if_else(Pnum == "20241MP28", "PY93410", Sire),
+    Dam  = if_else(Pnum == "20241MP28", "VZ33466", Dam)
+  )
+
+dam_as_sire2 <- intersect(
+  unique(na.omit(nestlings_from1947_8.5$Dam)),
+  unique(na.omit(nestlings_from1947_8.5$Sire))
+) #0! Fixed
+
+```
+
+Sires as Dams
+```{r}
+sire_as_dam <- intersect(
+  unique(na.omit(nestlings_from1947_8.5$Dam)),
+  unique(na.omit(nestlings_from1947_8.5$Sire))
+) #as expected, 0!
+```
+
 ###2.3.6 Dummy IDs and cutting ped to 1960 onwards
   I am going to cut the pedigree to have from 1960 onward as there are many many NAs in the adult information before that. I have struggled finding adult information from the early years.
 
@@ -470,8 +526,33 @@ nestlings_from1947_13<-nestlings_from1947_12 %>%
 #final
 nestlings_from1947_14<-fix_ped(nestlings_from1947_13) #there is one row with all NAs
 
-write.csv(nestlings_from1947_14, "ped_updated_1960_2025.csv")
+#write.csv(nestlings_from1947_14, "ped_updated_1960_2025.csv")
 ```
 
+#4. test
+```{r}
+str(nestlings_from1947_14)
+
+#dams as sires
+dam_as_sire <- intersect(
+  unique(na.omit(nestlings_from1947_14$dam)),
+  unique(na.omit(nestlings_from1947_14$sire))
+)
+
+ped_dams_as_sires<-nestlings_from1947_14 %>% 
+  filter(dam %in% dam_as_sire) %>% 
+  distinct(dam)
+#these dams appear as sires
+
+# 1 TY69574
+# 2 Y031429
+# 3 VZ30547
+# 4 PY93410
+# 5 VZ30433
+# 6 TV44507
+# 7 E985078
+# 8 TX42961
+# 9 TK26998
+```
 
 
