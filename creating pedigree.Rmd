@@ -363,12 +363,26 @@ nestlings_from1947_7 <- nestlings_from1947_6 %>%
 
 19921O57 - the dam can be VH83814 (see line 158)
 
-20191C4 -  the sire can be TR43098 (272)
+20191C4 -  the sire can be TR43098 (see line 272)
+
 ```{r}
 nestlings_from1947_8 <- nestlings_from1947_7 %>%
   mutate(Dam = ifelse(Pnum == "19921O57", "VH83814", Dam)) %>% 
   mutate(Sire = ifelse(Pnum == "20191C4", "TR43098", Sire))
 ```
+
+###2.3.6 Dummy IDs and cutting ped to 1960 onwards
+I am going to cut the pedigree to have from 1960 onwards as there are many many NAs in the adult information before that. I have struggled finding adult information from the early years
+```{r}
+nestlings_from1947_9<-nestlings_from1947_8 %>% 
+  filter(year>=1960) %>% 
+  mutate(
+    Dam  = if_else(is.na(Dam),  paste0(Pnum, "_dam"),  Dam),
+    Sire = if_else(is.na(Sire), paste0(Pnum, "_sire"), Sire)
+  )
+```
+
+
 
 
 
