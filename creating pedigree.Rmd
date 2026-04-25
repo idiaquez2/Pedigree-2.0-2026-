@@ -111,7 +111,7 @@ nestlings_from1947_3<-left_join(nestlings_from1947_2, adults_1960_sires, by="Pnu
 ```
 
 ##2.3 More parents can be Id'd from the long-term ringing data
-
+###2.3.1 Sires
 I am going to filter those with age>1 and the adult captures
 ```{r}
 adults_lt<-long_term_ringing_data_latest_2026_02_19 %>% 
@@ -144,46 +144,93 @@ adults_lt_males_2_relevant_Pnums2<-adults_lt_males_2_relevant_Pnums %>%
   group_by(Pnum) %>%
   summarise(n_distinct_sire = n_distinct(sire_lt)) %>%
   filter(n_distinct_sire > 1)
-
-# # There are 8 with two different rings in Pnum
-#   Pnum      n_distinct_sire
-#   <chr>               <int>
-# 1 19731B12                2 
-##-two different rings: BP11278 & BP11272 -> checking the long term dataset BP11278 was captured also in SW12 the day after. I am going to assume that BP11272 is the good male
-
-# 2 19901XN9                2 - This needs some thought
-# 3 19921O57                2 - F952677 is the good one according to the breeding dataset
-# 4 20151O52                2 - here I have the father and mother according to the breeding data
-# 5 20161C154               2 - 
-##here this Z032801 was once classified as a female so i think that I am going to assume that TP42633 is the male. I think this makes sense as the female was not id´d in that nest
-
-# 6 20191SW8                2 - TR43261 is the female according to ebmp and TS44673 the male
-# 7 20201O53                2 - here I have the mother and the father from the breeding data
-# 8 20231EX76               2
-
-
-
-
-
-
-
-  
-nestlings_from1947_test<-left_join(nestlings_from1947_3, adults_lt_males, by="Pnum")
-
-
-cosita<-nestlings_from1947_3 %>% 
-  distinct(Pnum) %>% 
-  mutate(as_nest="yes")
-
-cosa<-left_join(adults_lt_males,cosita, by="Pnum")
-str(test_count_pnums)
 ```
 
+------There are 8 with two different rings in Pnum-------
 
+1. 19731B12                
+Two different rings: BP11278 & BP11272 -> checking the long term dataset BP11278 was captured also in SW12 the day after. I am going to assume that BP11272 is the good sire
 
+2. 19901XN9 
+Two different rings: F491499 & F491500 - Here I cannot know which is the sire and which the dam
 
+3. 19921O57
+According to the breeding dataset this is the good sire - F952677 [which could imply that this (VH83814) is the Dam identified as such at other breeding attempts]
 
+4. 20151O52
+Here both adults have been identified using the breeding data
 
+5. 20161C154  
+Here Z032801 was Id as a female once, while TP42633 has been consistently id as a male. I am going to assume that TP42633 is the sire
+
+6. 20191SW8               
+There are two sire TS44673 & TR43261. In that Pnum the dam was id as TS44673 according to the long term ringing data. So TR43261 is the sire
+
+7. 20201O53              
+Here I have the mother and the father from the breeding data
+
+8. 20231EX76  
+TW41773 Dam identified in by the breeding data. The two sires [TY68319, PF71305] are difficult to tear apart.
+
+###2.3.2 Join sires
+```{r}
+adults_lt_males_2_relevant_Pnums_2<-adults_lt_males_2_relevant_Pnums %>% 
+  filter(!(Pnum == "19731B12" & sire_lt == "BP11278")) %>%  #dealing with 1 retaining BP11272
+  filter(!(Pnum == "19731B12")) %>% #dealing with 2; i remove both as I cannot know which is the sire
+  filter(!(Pnum == "19921O57" & sire_lt == "VH83814")) %>% #dealing with 3 retaining F952677
+  filter(!(Pnum == "20151O52")) %>% #dealing with 4, i remove it as both have been id with the breeding data
+  filter(!(Pnum == "20161C154" & sire_lt == "Z032801")) %>% #dealing with 5, i retain TP42633
+  filter(!(Pnum == "20191SW8" & sire_lt == "TS44673")) %>% #dealing with 6, i retain TR43261
+  filter(!(Pnum == "20201O53")) %>% #Dealing with 7, Mother and father identified thanks to the breeding data
+  filter(!(Pnum == "20231EX76")) %>%  #Dealing with 8, sires difficult to tear appart so I remove both
+  select(Pnum, sire_lt, year) %>% 
+  distinct(Pnum, .keep_all = TRUE)
+
+nestlings_from1947_4<-left_join(nestlings_from1947_3, adults_lt_males_2_relevant_Pnums_2, by="Pnum")
+
+#how many new ids does including the long-term data add
+nestlings_from1947_4 %>%
+  distinct(Pnum, .keep_all = TRUE) %>% 
+  filter(is.na(Sire) & !is.na(sire_lt)) %>%
+  nrow()
+#this adds 417 new sires
+
+#Sanity check - test that in those that I have both information of sire (from the breeding dataset) and of sire_lt (from the long term data)
+
+nestlings_from1947_4_test <- nestlings_from1947_4 %>%
+  mutate(Sire=trimws(Sire),
+         Sire=toupper(Sire),
+         sire_lt=trimws(sire_lt),
+         sire_lt=toupper(sire_lt)) %>% 
+  mutate(sire_match = case_when(
+    is.na(Sire) | is.na(sire_lt) ~ NA_character_,
+    Sire == sire_lt ~ "yes",
+    TRUE ~ "no"
+  ))
+```
+
+There are two problematic ones
+1. 19781CP22
+In this one there seems to be a typo between the sire in the breeding data and that in teh long term data [KC962*2*3 vs KC962*3*3].
+Both are males but 223 appears in the long term ringing data as being captured in February and November while 233 was captured during the breeding season, thus I think 233 is the good one
+
+2. 20181EX20
+Here, the data from the breeding dataset shows the same individual [VZ29475] as sire and dam. According to ebmp VZ29475 is a female, and the long term breeding data gives me Y836584 as a male.
+
+Fix these issues and combine sire columns
+```{r}
+nestlings_from1947_5 <- nestlings_from1947_4 %>%
+  mutate(Sire = case_when(
+    Pnum %in% c("19781CP22", "20181EX20") ~ NA_character_,
+    TRUE ~ Sire
+  ))%>%
+  mutate(Sire = coalesce(Sire, sire_lt)) %>% 
+  select(ring, Pnum, year.x, Dam, Sire) %>% 
+  rename(year=year.x)
+
+```
+
+###2.3.3 Dams
 
 
 
