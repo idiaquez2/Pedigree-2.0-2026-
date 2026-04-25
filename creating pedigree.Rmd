@@ -372,17 +372,73 @@ nestlings_from1947_8 <- nestlings_from1947_7 %>%
 ```
 
 ###2.3.6 Dummy IDs and cutting ped to 1960 onwards
-I am going to cut the pedigree to have from 1960 onwards as there are many many NAs in the adult information before that. I have struggled finding adult information from the early years
+  I am going to cut the pedigree to have from 1960 onward as there are many many NAs in the adult information before that. I have struggled finding adult information from the early years.
+
+  I also need to create dummy identities for those missing parents
 ```{r}
 nestlings_from1947_9<-nestlings_from1947_8 %>% 
   filter(year>=1960) %>% 
   mutate(
     Dam  = if_else(is.na(Dam),  paste0(Pnum, "_dam"),  Dam),
     Sire = if_else(is.na(Sire), paste0(Pnum, "_sire"), Sire)
-  )
+  ) %>% 
+  select(ring, Dam, Sire) %>% 
+  rename(id=ring)
 ```
 
+#3. Now I need to add population founders on the top of the pedigree
 
+##3.1 Add Dams and Sires that do not appear as Ids in the top of the pedigree
+For this I use pedtricks
+```{r}
+library(pedtricks)
+
+nestlings_from1947_10<-fix_ped(nestlings_from1947_9)
+```
+
+##3.2 Add information from other individuals that appear in the breeding dataset and in the mass dataset
+###3.2.1 Breeding dataset
+```{r}
+breeding_mothers<-Wytham_GT_BT_1960_2025 %>% 
+  filter(Species=="g") %>% 
+  select(Mother) %>% 
+  mutate(Mother=toupper(Mother),
+         Mother=trimws(Mother)) %>% 
+  distinct(Mother)%>% 
+  rename(ring=Mother)
+
+breeding_fathers<-Wytham_GT_BT_1960_2025 %>% 
+  filter(Species=="g") %>% 
+  select(Father) %>% 
+  mutate(Father=toupper(Father),
+         Father=trimws(Father)) %>% 
+  distinct(Father) %>% 
+  rename(ring=Father)
+
+breeding_adults<-rbind(breeding_mothers, breeding_fathers)
+
+#join the information of the ids already present in the pedigree
+
+id_ped<-nestlings_from1947_10 %>% 
+  select(id) %>% 
+  mutate(present_ped="yes")
+
+breeding_adults_2<-left_join(breeding_adults, id_ped, by=c("ring"="id"))
+
+breeding_adults_not_inped<-breeding_adults_2 %>% 
+  filter(is.na(present_ped)) %>% 
+  rename(id=ring) %>% 
+  select(-present_ped) %>% 
+  mutate(dam=NA,
+         sire=NA)
+
+nestlings_from1947_11<-rbind(nestlings_from1947_10, breeding_adults_not_inped)
+```
+
+###3.2.2 Body mass dataset
+```{r}
+
+```
 
 
 
