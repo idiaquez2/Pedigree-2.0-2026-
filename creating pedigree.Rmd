@@ -432,7 +432,7 @@ sire_as_dam <- intersect(
 
   I also need to create dummy identities for those missing parents
 ```{r}
-nestlings_from1947_9<-nestlings_from1947_8 %>% 
+nestlings_from1947_9<-nestlings_from1947_8.5 %>% 
   filter(year>=1960) %>% 
   mutate(
     Dam  = if_else(is.na(Dam),  paste0(Pnum, "_dam"),  Dam),
@@ -526,33 +526,8 @@ nestlings_from1947_13<-nestlings_from1947_12 %>%
 #final
 nestlings_from1947_14<-fix_ped(nestlings_from1947_13) #there is one row with all NAs
 
-#write.csv(nestlings_from1947_14, "ped_updated_1960_2025.csv")
+write.csv(nestlings_from1947_14, "ped_updated_1960_2025.csv")
 ```
 
-#4. test
-```{r}
-str(nestlings_from1947_14)
-
-#dams as sires
-dam_as_sire <- intersect(
-  unique(na.omit(nestlings_from1947_14$dam)),
-  unique(na.omit(nestlings_from1947_14$sire))
-)
-
-ped_dams_as_sires<-nestlings_from1947_14 %>% 
-  filter(dam %in% dam_as_sire) %>% 
-  distinct(dam)
-#these dams appear as sires
-
-# 1 TY69574
-# 2 Y031429
-# 3 VZ30547
-# 4 PY93410
-# 5 VZ30433
-# 6 TV44507
-# 7 E985078
-# 8 TX42961
-# 9 TK26998
-```
-
+#
 
