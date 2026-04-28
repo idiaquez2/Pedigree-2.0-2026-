@@ -433,6 +433,7 @@ sire_as_dam <- intersect(
 ```
 
 #3. Devi's corrections
+##3.1 Actual missing data
 Devi went through the pedigree and found the following missing data
   -K578593 (sire) and K578592 (dam) are stored as dummy IDs in your pedigree, they are parents of offspring from 20002O117 (ring numbers VF64293 to 8)
 
@@ -449,14 +450,139 @@ nestlings_from1947_8.5.5 <- nestlings_from1947_8.5 %>%
   mutate(Dam = ifelse(Pnum == "20121SW12A" & is.na(Dam), "Y035995", Dam))
 ```
 
+##3.2 Missing data present in Devi's nestling data
+Also Devi found a good bunch of broods in which we use dummy ids for the parents that could be complemented with information she got from the the a file she has been using gtchicks raw.
+```{r}
+fillable_dummyIDs <- readRDS("~/Dropbox/4.EGI/0.6 Creating pedigree/Pedigree 2.0 up to 2025/Pedigree-2.0-2026-/fillable_dummyIDs.RDS")
+  
+  #1. Add the pnums to the nestlings to work more efficiently
+ids_pnums<-nestlings_from1947_8.5.5 %>% #get pnums from the last version of the pedigree in construction
+  select(ring, Pnum)
 
+fillable_dummyIDs_2<-left_join(fillable_dummyIDs, ids_pnums, by=c("id"="ring"))
+
+fillable_dummyIDs_2_pnum<-fillable_dummyIDs_2 %>% 
+  distinct(Pnum, .keep_all = TRUE)
+
+  #2. Most of the ID's of my breeders came from the Wytham_GT_BT_1960_2025 dataset. I test how many of those pnums in the dummy dataset and thus in my pedigree appear on my breeding dataset
+
+  ###Is going to be easier to split it in dams and sires
+```
+
+###3.2.1 Dams
+```{r}
+fillable_dummyIDs_2_pnum_dams<-fillable_dummyIDs_2_pnum %>% 
+  filter(dam_fillable==TRUE) %>% 
+  select(dam, mother, dam_fillable, Pnum)
+
+pnums_in_breedingdata_Mothers<-Wytham_GT_BT_1960_2025 %>% 
+  select(Pnum, Mother) %>% 
+  mutate(present_in_breedingdata="yes") %>% 
+  rename(mother_inBdata=Mother)
+
+fillable_dummyIDs_2_pnum_bdata_dams<-left_join(fillable_dummyIDs_2_pnum_dams, pnums_in_breedingdata_Mothers, by="Pnum")
+
+fillable_dummyIDs_2_pnum_bdata_dams_present_but_not_included<-fillable_dummyIDs_2_pnum_bdata_dams %>% 
+  filter(!is.na(mother_inBdata))
+
+fillable_dummyIDs_2_pnum_bdata_dams_present_but_not_included$mother_inBdata
+
+#8 Mothers present in the breeding data but not included in the pedigree
+# "N200814" - 20032W89 this seems ok to include
+#"K578958" - 20032SW131 this seems ok to include
+#"VF64667"  - 20032W95 this seems ok to include
+#"vz30547"  - this one was sexed as a male by Keith and conflicts with a male
+#"vz33698" -  this one appears as a blue tit brood in the breeding data 
+# "pf71936"  - this one seems to be from HE which is not core Wytham
+# "py90617" - this one seems to be from HE which is not core Wytham
+# "ty70072" - this one seems to be from HE which is not core Wytham
+
+#### From those 8, 7 (no vz30547) can be added to the pedigree
+
+fillable_dummyIDs_2_pnum_bdata_dams_NOTpresent<-fillable_dummyIDs_2_pnum_bdata_dams %>% 
+  filter(is.na(mother_inBdata))
+
+#Examples
+#pt99190 it appears in ebmp
+#TY70887 it appears in ebmp and as an identified adult in the breeding data but not as a breeder.
+#19691EX32A this breeding attempt does not appear in the breeding data
+#19632EX51 neither does this
+
+##I feel that the breeding dataset may be incomplete in different ways thus I think is good to add this birds
+```
+
+###3.2.2 Add the Dams that Devi identified
+```{r}
+#prepare the data to join
+fillable_dummyIDs_2_pnum_bdata_dams_tjoin<-fillable_dummyIDs_2_pnum_bdata_dams %>% 
+  filter(mother!="VZ30547") %>% #is a male according to ebmp (determined by KMM)
+  select(Pnum, mother) %>% 
+  rename(Dam=mother)
+
+nestlings_from1947_8.5.6 <- nestlings_from1947_8.5.5 %>%
+  left_join(
+    fillable_dummyIDs_2_pnum_bdata_dams_tjoin %>% rename(Dam_new = Dam),
+    by = "Pnum"
+  ) %>%
+  mutate(Dam = if_else(!is.na(Dam_new), Dam_new, Dam)) %>%
+  select(-Dam_new)
+```
+
+###3.2.3 Sires
+```{r}
+fillable_dummyIDs_2_pnum_sires<-fillable_dummyIDs_2_pnum %>% 
+  filter(sire_fillable==TRUE) %>% 
+  select(sire, father, sire_fillable, Pnum)
+
+pnums_in_breedingdata_Fathers<-Wytham_GT_BT_1960_2025 %>% 
+  select(Pnum, Father) %>% 
+  mutate(present_in_breedingdata="yes") %>% 
+  rename(father_inBdata=Father)
+
+fillable_dummyIDs_2_pnum_bdata_sires<-left_join(fillable_dummyIDs_2_pnum_sires, pnums_in_breedingdata_Fathers, by="Pnum")
+
+fillable_dummyIDs_2_pnum_bdata_sire_present_but_not_included<-fillable_dummyIDs_2_pnum_bdata_sires %>% 
+  filter(!is.na(father_inBdata))
+
+fillable_dummyIDs_2_pnum_bdata_sire_present_but_not_included$father_inBdata
+
+#5 Fathers present in the breeding data but not included in the pedigree
+# "N200815" 
+# "N200068" here there was some problem with the colums that messed my filter (the species is not the species but the section)
+# "VF64396" here there was some problem with the colums that messed my filter (the species is not the species but the section)
+# "ty68248" Appears as a blue tit
+# "py90618" is HE
+
+#### From those 5 all are usable
+
+fillable_dummyIDs_2_pnum_bdata_sire_NOTpresent<-fillable_dummyIDs_2_pnum_bdata_sires %>% 
+  filter(is.na(father_inBdata))
+
+##I feel that the breeding dataset may be incomplete in different ways thus I think is good to add this birds
+```
+
+###3.2.3 Add the Sires that Devi identified
+```{r}
+#prepare the data to join
+fillable_dummyIDs_2_pnum_sires_tjoin<-fillable_dummyIDs_2_pnum_sires %>% 
+  select(Pnum, father) %>% 
+  rename(Sire=father)
+
+nestlings_from1947_8.5.7 <- nestlings_from1947_8.5.6 %>%
+  left_join(
+    fillable_dummyIDs_2_pnum_sires_tjoin %>% rename(Sire_new = Sire),
+    by = "Pnum"
+  ) %>%
+  mutate(Sire = if_else(!is.na(Sire_new), Sire_new, Sire)) %>%
+  select(-Sire_new)
+```
 
 #4. Dummy IDs and cutting ped to 1960 onwards
   I am going to cut the pedigree to have from 1960 onward as there are many many NAs in the adult information before that. I have struggled finding adult information from the early years.
 
   I also need to create dummy identities for those missing parents
 ```{r}
-nestlings_from1947_9<-nestlings_from1947_8.5.5 %>% 
+nestlings_from1947_9<-nestlings_from1947_8.5.7 %>% 
   filter(year>=1960) %>% 
   mutate(
     Dam  = if_else(is.na(Dam),  paste0(Pnum, "_dam"),  Dam),
