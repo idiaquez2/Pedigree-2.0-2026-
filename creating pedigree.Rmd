@@ -544,8 +544,10 @@ nestlings_from1947_13<-nestlings_from1947_12 %>%
 #final
 nestlings_from1947_14<-fix_ped(nestlings_from1947_13) #there is one row with all NAs
 
-write.csv(nestlings_from1947_14, "ped_updated_1960_2025.csv")
+#write.csv(nestlings_from1947_14, "ped_updated_1960_2025.csv")
 ```
+
+Note: As an extra test to see if all the individuals that should be included at least as id's are included, I downloaded the data from J.P. Woodman's paper -Age Specificity in Territory Quality and Spatial Structure in a Wild Bird Population- (AmNat 2025). He probably used an older version of the data that we used to create this pedigree. All individuals that he used are included in the pedigree, which is reasuring. 
 
 
 
