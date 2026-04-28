@@ -427,12 +427,31 @@ sire_as_dam <- intersect(
 ) #as expected, 0!
 ```
 
-###2.3.6 Dummy IDs and cutting ped to 1960 onwards
+#3. Devi's corrections
+Devi went through the pedigree and found the following missing data
+  -K578593 (sire) and K578592 (dam) are stored as dummy IDs in your pedigree, they are parents of offspring from 20002O117 (ring numbers VF64293 to 8)
+
+  -J644931 (dam)  and VE32654 (sire), stored as dummy IDs in your pedigree, parents of offspring from 20082W27 (ring numbers TL36433 to 7)
+
+  -Y035995 (dam) for 20121SW12A with offspring ring numbers TP27869 to 73
+
+```{r}
+nestlings_from1947_8.5.5 <- nestlings_from1947_8.5 %>%
+  mutate(Dam = ifelse(Pnum == "20002O117" & is.na(Dam), "K578592", Dam)) %>% 
+  mutate(Sire = ifelse(Pnum == "20002O117" & is.na(Sire), "K578593", Sire)) %>% 
+  mutate(Dam = ifelse(Pnum == "20082W27" & is.na(Dam), "J644931", Dam)) %>% 
+  mutate(Sire = ifelse(Pnum == "20082W27" & is.na(Sire), "VE32654", Sire)) %>% 
+  mutate(Dam = ifelse(Pnum == "20121SW12A" & is.na(Dam), "Y035995", Dam))
+```
+
+
+
+#4. Dummy IDs and cutting ped to 1960 onwards
   I am going to cut the pedigree to have from 1960 onward as there are many many NAs in the adult information before that. I have struggled finding adult information from the early years.
 
   I also need to create dummy identities for those missing parents
 ```{r}
-nestlings_from1947_9<-nestlings_from1947_8.5 %>% 
+nestlings_from1947_9<-nestlings_from1947_8.5.5 %>% 
   filter(year>=1960) %>% 
   mutate(
     Dam  = if_else(is.na(Dam),  paste0(Pnum, "_dam"),  Dam),
@@ -442,9 +461,9 @@ nestlings_from1947_9<-nestlings_from1947_8.5 %>%
   rename(id=ring)
 ```
 
-#3. Now I need to add population founders on the top of the pedigree
+#5. Now I need to add population founders on the top of the pedigree
 
-##3.1 Add Dams and Sires that do not appear as Ids in the top of the pedigree
+##5.1 Add Dams and Sires that do not appear as Ids in the top of the pedigree
 For this I use pedtricks
 ```{r}
 library(pedtricks)
@@ -452,8 +471,8 @@ library(pedtricks)
 nestlings_from1947_10<-fix_ped(nestlings_from1947_9)
 ```
 
-##3.2 Add information from other individuals that appear in the breeding dataset and in the mass dataset
-###3.2.1 Breeding dataset
+##5.2 Add information from other individuals that appear in the breeding dataset and in the mass dataset
+###5.2.1 Breeding dataset
 ```{r}
 breeding_mothers<-Wytham_GT_BT_1960_2025 %>% 
   filter(Species=="g") %>% 
@@ -491,7 +510,7 @@ breeding_adults_not_inped<-breeding_adults_2 %>%
 nestlings_from1947_11<-rbind(nestlings_from1947_10, breeding_adults_not_inped)
 ```
 
-###3.2.2 Body mass dataset
+###5.2.2 Body mass dataset
 ```{r}
 adult_mass_breeding25_alt <- read_csv("adult_mass_breeding25_alt.csv")
 
@@ -502,7 +521,6 @@ mass_adults_ids<-adult_mass_breeding25_alt %>%
 id_ped_2<-nestlings_from1947_11 %>% 
   select(id) %>% 
   mutate(present_ped="yes")
-
 
 mass_adults_ids_2<-left_join(mass_adults_ids, id_ped_2, by=c("ring"="id"))
 mass_adults_ids_2_not_inped<-mass_adults_ids_2 %>% 
@@ -529,5 +547,5 @@ nestlings_from1947_14<-fix_ped(nestlings_from1947_13) #there is one row with all
 write.csv(nestlings_from1947_14, "ped_updated_1960_2025.csv")
 ```
 
-#
+
 
