@@ -1,9 +1,14 @@
 ---
 title: "Creating pedigree"
-author: "david lopez idiaquez & devi satarkar"
+author: "david lopez idiaquez"
 date: "2026-04-23"
 output: html_document
 ---
+
+                        - CODE TO COMPILE AND CREATE A PEDIGREE FOR WYTHAM WOODS GREAT TIT (1960-2025) -
+                        
+                                        contact: david.lopez-idiaquez@biology.ox.ac.uk
+
 #0.Packages
 ```{r}
 library(dplyr)
@@ -19,7 +24,7 @@ Data on nestlings ringed in Wytham is a bit messy, so we are trying to maximise 
 
 ##1.1 great_tit_nest_21_04_2026.csv
 
-This dataset contains the nestlings ringed between 1960 and 2025 that David collated for the Life-History Evolution project with S.R. Evans. It was done by using two datasets long_term_ringing_data_latest_2026.02.19.csv and wythamGTBT_ringingdata_1960_2024.csv using the code recruits (all present in the repository),
+This dataset contains the nestlings ringed between 1960 and 2025 that David collated for the Life-History Evolution project with S.R. Evans. It was done by using two datasets long_term_ringing_data_latest_2026.02.19.csv and wythamGTBT_ringingdata_1960_2024.csv using the code recruits.Rmd (all present at the repository),
 
 This dataset should be a reliable source of information on the nestlings ringed between 1960 and 2025 and their associated Pnums
 ```{r}
