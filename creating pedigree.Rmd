@@ -680,4 +680,100 @@ nestlings_from1947_14<-fix_ped(nestlings_from1947_13) #there is one row with all
 
 Note: As an extra test to see if all the individuals that should be included at least as id's are included, I downloaded the data from J.P. Woodman's paper -Age Specificity in Territory Quality and Spatial Structure in a Wild Bird Population- (AmNat 2025). He probably used an older version of the data that we used to create this pedigree. All individuals that he used are included in the pedigree, which is reasuring. 
 
+#6. Add 2026 data
+##6.1 Add nestlings
+```{r}
+ebmp_ipmr_export_24_06_2026 <- read_csv("ebmp_ipmr_export_24-06-2026.csv")
+
+nest_26<-ebmp_ipmr_export_24_06_2026 %>% 
+  filter(Age==1) %>% 
+  filter(Spec=="GRETI") %>% 
+  mutate(pnum=paste("2026", "1", Site, sep="")) %>% 
+  select(pnum,Ring)
+
+#Test if there is a pnum with many more nestlings than expected
+test_1<-nest_26 %>% 
+  group_by(pnum) %>% 
+  summarise(n_ring=length(pnum)) %>% 
+  ungroup()
+max(test_1$n_ring) #12
+min(test_1$n_ring) #1
+
+###########Load breeders to add parents to nestlings
+ebmp_broods_24_06_2026 <- read_csv("ebmp_broods_24-06-2026.csv")
+
+mothers_2026<-ebmp_broods_24_06_2026 %>% 
+  filter(Species=="g") %>% 
+  select(Pnum, Mother, Species) %>% 
+  mutate(dam=toupper(Mother),
+         dam=trimws(dam)) %>%  #there is onw mother with a ring with a weird format beb1108 it appears like this in the dataset
+  select(Pnum, dam)
+  
+fathers_2026<-ebmp_broods_24_06_2026 %>% 
+  filter(Species=="g") %>% 
+  select(Pnum, Father, Species) %>% 
+  mutate(sire=toupper(Father),
+         sire=trimws(sire)) %>%  #there is onw mother with a ring with a weird format beb1108 it appears like this in the dataset
+  select(Pnum, sire)
+  
+#add parents to nestlings
+nest_26_wM<-left_join(nest_26, mothers_2026, by=c("pnum"="Pnum"))
+nest_26_wM_F<-left_join(nest_26_wM, fathers_2026, by=c("pnum"="Pnum"))
+
+nest_26_wM_F_tjoin<-nest_26_wM_F %>% 
+  rename(id=Ring) %>% 
+  select(-pnum)
+
+#test that no mother appears also as a father and viceversa
+# All IDs used as dam, all IDs used as sire
+dams  <- unique(nest_26_wM_F$dam)
+sires <- unique(nest_26_wM_F$sire)
+
+# IDs that appear in both roles
+conflicting_ids <- intersect(dams, sires)
+conflicting_ids <- conflicting_ids[!is.na(conflicting_ids)]
+
+conflicting_ids #No problem
+
+######Add these things to the pedigree
+nestlings_from1947_15<-rbind(nestlings_from1947_14, nest_26_wM_F_tjoin)
+```
+
+##6.2 Add adults
+```{r}
+mod_tjoin<-mothers_2026 %>% 
+  select(dam) %>% 
+  rename(id=dam) %>% 
+  na.omit() %>% 
+  distinct(id)
+
+fat_tjoin<-fathers_2026 %>% 
+  select(sire) %>% 
+  rename(id=sire) %>% 
+  na.omit() %>% 
+  distinct(id)
+
+breeders_26<-rbind(mod_tjoin, fat_tjoin)
+
+#identify those not already in the pedigree
+ids_ped<-nestlings_from1947_15 %>% 
+  select(id) %>% 
+  mutate(present_ped="yes")
+
+breeders_26_2<-left_join(breeders_26, ids_ped, by="id")
+
+breeders_26_tjoin<-breeders_26_2 %>% 
+  filter(is.na(present_ped)) %>%  #there are 107 inds that are not present in the pedigree; these are immigrants
+  mutate(dam=NA) %>% 
+  mutate(sire=NA) %>% 
+  select(-present_ped)
+  
+nestlings_from1947_16<-rbind(nestlings_from1947_15, breeders_26_tjoin)
+
+
+write.csv(nestlings_from1947_16, "ped_updated_1960_2026.csv")
+```
+
+
+
 
